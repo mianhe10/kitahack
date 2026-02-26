@@ -6,10 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:csv/csv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_colors.dart';
 import '../model/product_model.dart';
 import '../services/data_ingestion_service.dart';
 import 'header_confirmation_screen.dart';
+import 'manual_product_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -30,6 +32,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
     Product(id: "2", title: "Studio Headphones Pro", currentPrice: 199.5, recommendedPrice: 199.5, stock: 8, unitsSold: 2, aiAdvice: "", isAiReady: false),
   ];
 
+  /// =========================
+  /// FILE PICKER & AI LOGIC
+  /// =========================
   Future<void> _pickCSVFile(BuildContext context) async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -79,8 +84,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
       List<Product> newProducts = [];
       debugPrint("--- STARTING CSV PARSE ---");
-      debugPrint("Headers: $headers");
-      debugPrint("AI Mapping used: $mapping");
 
       for (int i = 1; i < fields.length; i++) {
         final row = fields[i];
@@ -121,8 +124,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
           aiAdvice: "",
         ));
       }
-
-      debugPrint("Successfully extracted ${newProducts.length} items from CSV.");
 
       setState(() => _products = newProducts);
 
@@ -203,7 +204,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
       if (mounted) _showSnackBar(context, "AI Market Research Complete!");
     } catch (e) {
       if (mounted) _showSnackBar(context, "Error processing data: $e");
-      debugPrint("FATAL ERROR: $e");
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -232,38 +232,136 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
+  /// =========================
+  /// MAIN BUILD
+  /// =========================
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSearchBar(),
-              const SizedBox(height: 20),
-              _buildSyncCard(context),
-              const SizedBox(height: 30),
-              _buildInventoryHeader(),
-              const SizedBox(height: 16),
-              ..._products.map((product) => _buildInventoryItem(product)).toList(),
-            ],
-          ),
-        ),
-        if (_isProcessing)
-          Container(
-            color: Colors.black54,
-            child: const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSearchBar(),
+                  const SizedBox(height: 20),
+                  _buildDataSourceCard(),
+                  const SizedBox(height: 24),
+                  _buildInventoryHeader(),
+                  const SizedBox(height: 16),
+
+                  /// PRODUCT LIST (Using Local List for AI Demo)
+                  Expanded(
+                    child: _products.isEmpty
+                        ? _buildEmptyState()
+                        : ListView.builder(
+                            itemCount: _products.length,
+                            itemBuilder: (context, index) {
+                              return _buildInventoryItem(_products[index]);
+                            },
+                          ),
+                  ),
+                ],
+              ),
             ),
-          ),
-      ],
+            if (_isProcessing)
+              Container(
+                color: Colors.black54,
+                child: const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
+  /// =========================
+  /// DATA SOURCE CARD
+  /// =========================
+  Widget _buildDataSourceCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Data Source",
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "Import sales data to get AI pricing, or manage manually.",
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 20),
+
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.black,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            onPressed: () => _pickCSVFile(context),
+            icon: const Icon(Icons.upload_file),
+            label: const Text(
+              "Upload CSV File",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ManualProductScreen()),
+              );
+            },
+            icon: const Icon(Icons.add),
+            label: const Text("Add Product Manually"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// =========================
+  /// INVENTORY ITEM (AI Design)
+  /// =========================
   Widget _buildInventoryItem(Product product) {
-    // Utilizing the getters directly from your Product model
     final Color recColor = product.isUp 
         ? Colors.greenAccent 
         : (product.isDown ? Colors.redAccent : Colors.grey);
@@ -273,11 +371,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
         : (product.isDown ? Icons.trending_down : Icons.horizontal_rule);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFF13201D), 
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -330,8 +435,23 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 const SizedBox(height: 24), 
                 
               const SizedBox(height: 18),
-              Text("Stock: ${product.stock} units",
-                style: const TextStyle(color: Color(0xFF90A4AE), fontSize: 13)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: product.stock > 0
+                      ? Colors.green.withValues(alpha: 0.15)
+                      : Colors.red.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  product.stock > 0 ? "${product.stock} in stock" : "Out of stock",
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: product.stock > 0 ? Colors.greenAccent : Colors.redAccent,
+                  ),
+                ),
+              ),
             ],
           ),
         ],
@@ -339,44 +459,55 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _buildSyncCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
-      ),
+  /// =========================
+  /// EMPTY STATE
+  /// =========================
+  Widget _buildEmptyState() {
+    return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.sync, color: AppColors.primary),
-              SizedBox(width: 12),
-              Text("Sync Sales Data",
-                style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-            ],
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 50,
+            color: AppColors.textSecondary,
           ),
-          const SizedBox(height: 8),
-          Text("Upload latest CSV to update inventory and get AI pricing.",
-            style: TextStyle(color: AppColors.textSecondary.withOpacity(0.7), fontSize: 13)),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.black,
-              minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            onPressed: () => _pickCSVFile(context),
-            icon: const Icon(Icons.upload_file),
-            label: const Text("Upload CSV File", style: TextStyle(fontWeight: FontWeight.bold)),
+          SizedBox(height: 12),
+          Text(
+            "0 Products",
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
           ),
         ],
       ),
     );
   }
 
+  /// =========================
+  /// HEADER WITH LIVE COUNT
+  /// =========================
+  Widget _buildInventoryHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Text(
+          "Product Inventory",
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          "${_products.length} Items",
+          style: const TextStyle(color: AppColors.primary, fontSize: 12),
+        ),
+      ],
+    );
+  }
+
+  /// =========================
+  /// SEARCH BAR
+  /// =========================
   Widget _buildSearchBar() {
     return TextField(
       style: const TextStyle(color: Colors.white),
@@ -385,21 +516,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
         hintStyle: const TextStyle(color: AppColors.textSecondary),
         prefixIcon: const Icon(Icons.search, color: AppColors.primary),
         filled: true,
-        fillColor: AppColors.card.withOpacity(0.5),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        fillColor: AppColors.card,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
       ),
-    );
-  }
-
-  Widget _buildInventoryHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Text("Product Inventory",
-          style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
-        Text("${_products.length} products",
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
-      ],
     );
   }
 }
