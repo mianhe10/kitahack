@@ -44,6 +44,8 @@ dependencies:
 
   # Utilities
   cupertino_icons: ^1.0.8
+  fl_chart: ^1.1.1
+  lucide_icons: ^0.257.0
   shared_preferences: ^2.5.4
   url_launcher: ^6.3.2
   package_info_plus: ^9.0.0
@@ -101,3 +103,4 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+

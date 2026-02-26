@@ -328,7 +328,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             onPressed: () => _pickCSVFile(context),
             icon: const Icon(Icons.upload_file),
             label: const Text(
-              "Upload CSV File",
+              "Upload Sales CSV",
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
@@ -396,6 +396,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             child: const Icon(Icons.watch, color: Colors.black38, size: 30),
           ),
           const SizedBox(width: 16),
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -452,7 +453,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   ),
                 ),
               ),
-            ],
+            ),
           ),
         ],
       ),
