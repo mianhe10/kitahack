@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Added for real logout
+import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/app_colors.dart';
 import '../screens/login_screen.dart';
+import '../screens/SettingScreen.dart'; 
+import '../screens/profile.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -32,11 +34,32 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
           ),
-          _buildDrawerItem(context, Icons.person_outline, "Account Profile"),
-          _buildDrawerItem(context, Icons.settings_outlined, "Settings"),
+          _buildDrawerItem(
+  context, 
+  Icons.person_outline, 
+  "Account Profile",
+  onTap: () {
+    Navigator.pop(context); // Close the drawer first
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ProfileScreen()),
+    );
+  },
+),
+          _buildDrawerItem(
+            context, 
+            Icons.settings_outlined, 
+            "Settings",
+            onTap: () {
+              Navigator.pop(context); 
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
           _buildDrawerItem(context, Icons.help_outline, "Help & Support"),
           const Spacer(),
-          // Logout Item with Real Firebase Sign Out
           _buildDrawerItem(context, Icons.logout, "Logout", isLogout: true),
           const SizedBox(height: 20),
         ],
@@ -49,6 +72,7 @@ class AppDrawer extends StatelessWidget {
     IconData icon,
     String title, {
     bool isLogout = false,
+    VoidCallback? onTap, 
   }) {
     return ListTile(
       leading: Icon(
@@ -61,12 +85,10 @@ class AppDrawer extends StatelessWidget {
           color: isLogout ? Colors.redAccent : AppColors.textPrimary,
         ),
       ),
-      onTap: () async {
+      onTap: onTap ?? () async {
         if (isLogout) {
-          // 1. Sign out from Firebase
           await FirebaseAuth.instance.signOut();
 
-          // 2. Clear stack and go to Login
           if (context.mounted) {
             Navigator.pushAndRemoveUntil(
               context,
