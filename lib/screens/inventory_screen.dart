@@ -22,7 +22,7 @@ class InventoryScreen extends StatefulWidget {
 
 class _InventoryScreenState extends State<InventoryScreen> {
   final DataIngestionService _dataService = DataIngestionService(
-    apiKey: "AIzaSyB61_B9JGHO18eNW9v-kgzr4OQh7rf61Zw",
+    apiKey: "geminiAI-API-key",
   );
 
   bool _isProcessing = false;
@@ -134,7 +134,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
       final model = GenerativeModel(
         model: 'gemini-2.5-flash', 
-        apiKey: 'AIzaSyB61_B9JGHO18eNW9v-kgzr4OQh7rf61Zw',
+        apiKey: 'GeminiAI-API-key',
       );
 
       const int batchSize = 5;
