@@ -97,7 +97,11 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.analytics, size: 80, color: AppColors.primary),
+              Image.asset(
+                'assets/Pryce.png',
+                height: 120, // Adjust the height as you like
+                fit: BoxFit.contain,
+              ),
               const SizedBox(height: 60),
               _buildInput(
                 "Username",

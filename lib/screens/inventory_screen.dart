@@ -169,7 +169,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
     Map<String, dynamic> product,
   ) async {
     if (_runningAiIds.contains(docId)) return;
+    if (product['isAiReady'] == true) return; // <── cache guard
+
     setState(() => _runningAiIds.add(docId));
+
     try {
       final result = await GeminiService.analyseSingleProduct(
         id: docId,
@@ -178,6 +181,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         stock: (product['stock'] ?? 0) as int,
         unitsSold: product['unitsSold'] ?? 0,
       );
+
       await _productsCol.doc(docId).update(result.toFirestoreMap());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -218,129 +222,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
   // ─────────────────────────────────────────────────────────
 
   Future<void> _runAiForAllProducts({bool reanalyseAll = false}) async {
-    final snapshot = await _productsCol.get();
-    final targets = snapshot.docs.where((doc) {
-      final data = doc.data() as Map<String, dynamic>;
-      return reanalyseAll ? true : !(data['isAiReady'] ?? false);
-    }).toList();
-
-    if (targets.isEmpty) {
-      _showSnackBar(context, 'No products found!');
-      return;
-    }
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(
-          reanalyseAll
-              ? 'Re-analyse All Products?'
-              : 'Run AI for All Products?',
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Text(
-          reanalyseAll
-              ? 'This will re-analyse all ${targets.length} products with fresh market data.'
-              : 'This will analyse ${targets.length} unanalysed product${targets.length > 1 ? 's' : ''} in batches.',
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(
-              reanalyseAll ? 'Re-analyse All' : 'Run All',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
+    _showSnackBar(
+      context,
+      'AI Bulk Analysis is currently unavailable (Free tier limit reached).',
     );
-
-    if (confirmed != true) return;
-
-    setState(() {
-      _isBulkAiRunning = true;
-      _bulkAiCancelled = false;
-      _bulkAiProgress = 0;
-      _bulkAiTotal = targets.length;
-    });
-
-    const int batchSize = 5;
-    try {
-      for (int i = 0; i < targets.length; i += batchSize) {
-        if (_bulkAiCancelled || !mounted) break;
-        final end = (i + batchSize < targets.length)
-            ? i + batchSize
-            : targets.length;
-        final chunk = targets.sublist(i, end);
-        final batchInput = chunk.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return {
-            'id': doc.id,
-            'name': data['name'] ?? '',
-            'price': (data['price'] ?? 0).toDouble(),
-            'stock': (data['stock'] ?? 0) as int,
-            'sold': data['unitsSold'] ?? 0,
-          };
-        }).toList();
-
-        try {
-          final results = await GeminiService.analyseBatch(batchInput);
-          if (!mounted || _bulkAiCancelled) break;
-          final writeBatch = _firestore.batch();
-          for (final result in results) {
-            writeBatch.update(
-              _productsCol.doc(result.id),
-              result.toFirestoreMap(),
-            );
-          }
-          await writeBatch.commit();
-        } catch (e) {
-          debugPrint('Bulk AI batch error at index $i: $e');
-        }
-
-        if (mounted)
-          setState(
-            () => _bulkAiProgress = (i + batchSize).clamp(0, _bulkAiTotal),
-          );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isBulkAiRunning = false;
-          _bulkAiCancelled = false;
-          _bulkAiProgress = 0;
-          _bulkAiTotal = 0;
-        });
-        _showSnackBar(
-          context,
-          _bulkAiCancelled
-              ? 'AI analysis cancelled.'
-              : reanalyseAll
-              ? 'Re-analysis complete for all products!'
-              : 'AI analysis complete for all products!',
-        );
-      }
-    }
   }
 
   // ─────────────────────────────────────────────────────────
@@ -1389,7 +1274,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       ),
                       const SizedBox(width: 6),
                       GestureDetector(
-                        onTap: isRunningAi
+                        onTap: product['isAiReady'] == true
                             ? null
                             : () => _runAiForProduct(docId, product),
                         child: Container(

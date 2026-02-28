@@ -17,7 +17,7 @@ class _MainWrapperState extends State<MainWrapper>
     with SingleTickerProviderStateMixin {
   int _selectedIndex = 1;
 
-  // ── Welcome overlay ──────────────────────────────────────────
+  // ── Welcome overlay logic ──────────────────────────────────────
   bool _showWelcome = true;
   late final AnimationController _fadeCtrl;
   late final Animation<double> _fadeAnim;
@@ -34,6 +34,7 @@ class _MainWrapperState extends State<MainWrapper>
 
     _fadeCtrl.forward();
 
+    // Auto-hide the welcome screen after 2.2 seconds
     Future.delayed(const Duration(milliseconds: 2200), () {
       if (!mounted) return;
       _fadeCtrl.reverse().then((_) {
@@ -48,13 +49,12 @@ class _MainWrapperState extends State<MainWrapper>
     super.dispose();
   }
 
-  // ── Navigate to Products tab (index 2) ───────────────────────
   void _navigateToProducts() {
     setState(() => _selectedIndex = 2);
   }
 
   void _navigateToSimulator() {
-    setState(() => _selectedIndex = 0); // Simulator is index 0
+    setState(() => _selectedIndex = 0);
   }
 
   @override
@@ -63,7 +63,7 @@ class _MainWrapperState extends State<MainWrapper>
       const SimulatorScreen(),
       HomeScreen(
         username: widget.username,
-        onNavigateToProducts: _navigateToProducts, // ← wired here
+        onNavigateToProducts: _navigateToProducts,
         onNavigateToSimulator: _navigateToSimulator,
       ),
       const InventoryScreen(),
@@ -80,9 +80,9 @@ class _MainWrapperState extends State<MainWrapper>
             centerTitle: true,
             title: Text(
               _selectedIndex == 0
-                  ? 'Price & Profit Simulator'
+                  ? 'Profit Simulator'
                   : _selectedIndex == 1
-                  ? 'Pricing Intel'
+                  ? 'Price Insights' // Updated Title
                   : 'Inventory & Sales',
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
@@ -123,21 +123,25 @@ class _MainWrapperState extends State<MainWrapper>
           FadeTransition(
             opacity: _fadeAnim,
             child: Container(
-              color: AppColors.background.withValues(alpha: 0.92),
+              color: AppColors.background.withValues(alpha: 0.95),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // --- NEW: Logo Container ---
                     Container(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(15),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.primary.withValues(alpha: 0.15),
+                        color: AppColors.primary.withValues(alpha: 0.1),
                       ),
-                      child: const Icon(
-                        Icons.analytics,
-                        size: 64,
-                        color: AppColors.primary,
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/Pryce.png',
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 28),
@@ -150,23 +154,24 @@ class _MainWrapperState extends State<MainWrapper>
                         decoration: TextDecoration.none,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
+                    // --- NEW: Brand Name ---
                     const Text(
-                      'KitaHack',
+                      'Pryce',
                       style: TextStyle(
                         color: AppColors.primary,
-                        fontSize: 42,
+                        fontSize: 40,
                         fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
+                        letterSpacing: 1.5,
                         decoration: TextDecoration.none,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 15),
                     Text(
                       'Hello, ${widget.username} 👋',
                       style: const TextStyle(
                         color: AppColors.textPrimary,
-                        fontSize: 15,
+                        fontSize: 16,
                         decoration: TextDecoration.none,
                       ),
                     ),
