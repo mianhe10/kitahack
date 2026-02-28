@@ -94,7 +94,6 @@ Add Firebase Analytics and Crashlytics for usage monitoring. Implement Role-Base
 
 | Goal | Contribution |
 |---|---|
-| **SDG 1** — No Poverty | Increasing income stability for B40 entrepreneurs |
 | **SDG 8** — Decent Work & Economic Growth | Strengthening MSME resilience and competitiveness |
 | **SDG 9** — Industry, Innovation & Infrastructure | Upgrading tech capabilities of small-scale industries |
 
@@ -136,11 +135,19 @@ flutter run
 
 > **Note:** Firebase configuration files are included in the repository for seamless hackathon testing — no additional Firebase setup required.
 
+### Sample CSV Files
+
+Not sure what format to use? We've provided ready-made sample CSV files (Shopee & TikTok Shop formats) for you to test the import flow right away.
+
+📂 **[Download Sample CSV Files](https://drive.google.com/drive/folders/1VayukgR8EujkKvNUtqyfEquOZbdBjRBP?usp=sharing)**
+
+Simply download a file and upload it via the **Inventory Screen** to see the AI-powered CSV mapping and pricing analysis in action.
+
 ---
 
 ## The Team
 
-Built at **Universiti Malaya** for **KitaHack 2026**
+Built at **Universiti Malaya** for **KitaHack 2026** — Group OCC 12, Group 2.
 
 | | |
 |---|---|
