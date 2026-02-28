@@ -44,10 +44,13 @@ class _HomeScreenState extends State<HomeScreen>
   // AI results
   AiDailyBriefing? _briefing;
   AiDemandExplanation? _demandExplanation;
-  bool _loadingBriefing = true;
-  bool _loadingDemand = true;
+  bool _loadingBriefing = false;
+  bool _loadingDemand = false;
 
-  // Last updated timestamp
+  // ── Persistence: tracks if AI has ever been generated (survives app restarts) ──
+  bool _hasEverGenerated = false;
+
+  // Last updated timestamp (loaded from Firestore cache or set after generation)
   DateTime? _lastUpdated;
 
   // Greeting timer
@@ -87,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen>
     _greetingTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() {});
     });
-    _loadDataThenAI();
+    _loadDataOnly();
   }
 
   @override
@@ -118,7 +121,10 @@ class _HomeScreenState extends State<HomeScreen>
     final diff = DateTime.now().difference(_lastUpdated!);
     if (diff.inSeconds < 60) return 'Updated just now';
     if (diff.inMinutes < 60) return 'Updated ${diff.inMinutes}m ago';
-    return 'Updated ${diff.inHours}h ago';
+    if (diff.inHours < 24) return 'Updated ${diff.inHours}h ago';
+    // Older than 24h — show the date so user knows it's stale
+    final d = _lastUpdated!;
+    return 'From ${d.day}/${d.month}/${d.year}';
   }
 
   void _goToProducts() {
@@ -142,24 +148,15 @@ class _HomeScreenState extends State<HomeScreen>
     widget.onNavigateToSimulator?.call();
   }
 
-  // ─────────────────────────────────────────────────────────
-  // DATA LOADING
-  // ─────────────────────────────────────────────────────────
-
-  Future<void> _loadDataThenAI() async {
+  /// Loads inventory/user data + any previously cached briefing from Firestore.
+  /// Does NOT call AI automatically — user must tap Generate.
+  Future<void> _loadDataOnly() async {
     await _loadUserData();
-    await Future.wait([
-      _loadBriefing(),
-      if (_hasInventory) _loadDemandExplanation() else _skipDemand(),
-    ]);
-    if (mounted) setState(() => _lastUpdated = DateTime.now());
+    await _loadCachedBriefing(); // ← restore persisted briefing if exists
   }
 
-  Future<void> _skipDemand() async {
-    if (mounted) setState(() => _loadingDemand = false);
-  }
-
-  Future<void> _loadUserData() async {
+  /// Reads the last saved briefing from Firestore (persists across app restarts).
+  Future<void> _loadCachedBriefing() async {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
@@ -168,22 +165,128 @@ class _HomeScreenState extends State<HomeScreen>
           .collection('users')
           .doc(uid)
           .get();
+
+      if (!doc.exists || !mounted) return;
+
+      final cached = doc.data()?['cachedBriefing'] as Map<String, dynamic>?;
+      if (cached == null) return;
+
+      final headline = cached['headline'] as String?;
+      final actionLabel = cached['actionLabel'] as String? ?? '';
+      final summary = cached['summary'] as String?;
+      final actionDetail = cached['actionDetail'] as String? ?? '';
+      final savedAt = (cached['savedAt'] as Timestamp?)?.toDate();
+      // after restoring _briefing...
+
+      final cachedDemand = doc.data()?['cachedDemand'] as Map<String, dynamic>?;
+      if (cachedDemand != null) {
+        final peakDay = cachedDemand['peakDay'] as String?;
+        final explanation = cachedDemand['explanation'] as String?;
+        final pricingTip = cachedDemand['pricingTip'] as String?;
+        if (peakDay != null && explanation != null && pricingTip != null) {
+          _demandExplanation = AiDemandExplanation(
+            peakDay: peakDay,
+            explanation: explanation,
+            pricingTip: pricingTip,
+          );
+        }
+      }
+      if (headline != null && summary != null) {
+        setState(() {
+          _briefing = AiDailyBriefing(
+            headline: headline,
+            summary: summary,
+            actionLabel: actionLabel, // ← must be here
+            actionDetail: actionDetail,
+          );
+          _hasEverGenerated = true;
+          if (savedAt != null) _lastUpdated = savedAt;
+        });
+      }
+    } catch (e) {
+      debugPrint('HomeScreen _loadCachedBriefing: $e');
+    }
+  }
+
+  /// Saves the generated briefing to Firestore so it persists across restarts.
+  Future<void> _saveBriefingToFirestore(AiDailyBriefing briefing) async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'cachedBriefing': {
+          'headline': briefing.headline,
+          'summary': briefing.summary,
+          'actionLabel': briefing.actionLabel,
+          'actionDetail': briefing.actionDetail,
+          'savedAt': FieldValue.serverTimestamp(),
+        },
+        'cachedDemand': _demandExplanation == null
+            ? null
+            : {
+                // ← add this block
+                'peakDay': _demandExplanation!.peakDay,
+                'explanation': _demandExplanation!.explanation,
+                'pricingTip': _demandExplanation!.pricingTip,
+              },
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('HomeScreen _saveBriefingToFirestore: $e');
+    }
+  }
+
+  /// Runs both AI calls, updates state, and saves result to Firestore.
+  Future<void> _runAI() async {
+    if (!_hasInventory) return;
+
+    setState(() {
+      _loadingBriefing = true;
+      _loadingDemand = true;
+      _briefing = null;
+      _demandExplanation = null;
+    });
+
+    try {
+      await Future.wait([_loadBriefing(), _loadDemandExplanation()]);
+      if (mounted) {
+        final now = DateTime.now();
+        setState(() {
+          _lastUpdated = now;
+          _hasEverGenerated = true;
+        });
+        // Persist briefing so it survives app restarts
+        if (_briefing != null) {
+          await _saveBriefingToFirestore(_briefing!);
+        }
+      }
+    } catch (e) {
+      debugPrint("AI home load error: $e");
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingBriefing = false;
+          _loadingDemand = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+
+      final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+
+      final doc = await userRef.get();
       if (!doc.exists || !mounted) return;
 
       final data = doc.data()!;
       final profile = data['businessProfile'] as Map<String, dynamic>?;
 
-      final prodSnap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('products')
-          .get();
-
-      final logsSnap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('sales_log')
-          .get();
+      final prodSnap = await userRef.collection('products').get();
+      final logsSnap = await userRef.collection('sales_log').get();
 
       final Map<String, double> aggregated = {
         'Mon': 0,
@@ -196,8 +299,7 @@ class _HomeScreenState extends State<HomeScreen>
       };
 
       for (final log in logsSnap.docs) {
-        final d = log.data();
-        final salesByDay = d['salesByDay'] as Map<String, dynamic>?;
+        final salesByDay = log.data()['salesByDay'] as Map<String, dynamic>?;
         if (salesByDay != null) {
           salesByDay.forEach((day, qty) {
             if (aggregated.containsKey(day)) {
@@ -215,7 +317,6 @@ class _HomeScreenState extends State<HomeScreen>
       final hasAiReady = prodSnap.docs.any(
         (d) => (d.data()['isAiReady'] ?? false) == true,
       );
-      final hasCsvImport = logsSnap.docs.isNotEmpty;
       final aiReadyCount = prodSnap.docs
           .where((d) => (d.data()['isAiReady'] ?? false) == true)
           .length;
@@ -226,24 +327,28 @@ class _HomeScreenState extends State<HomeScreen>
         return stock > 0 && stock < threshold;
       }).length;
 
-      if (mounted) {
-        setState(() {
-          _businessName = profile?['businessName'] ?? widget.username;
-          _industry = profile?['industry'] ?? 'Retail';
-          _region = profile?['region'] ?? 'Kuala Lumpur';
-          _products = prodSnap.docs
-              .map((d) => {'id': d.id, ...d.data()})
-              .toList();
-          _hasInventory = prodSnap.docs.isNotEmpty;
-          _hasAiReady = hasAiReady;
-          _hasCsvImport = hasCsvImport;
-          _inventoryLoading = false;
-          _totalProducts = prodSnap.docs.length;
-          _aiReadyCount = aiReadyCount;
-          _lowStockCount = lowStockCount;
-          if (maxVal > 0) _weeklyDemand = normalized;
-        });
-      }
+      if (!mounted) return;
+
+      setState(() {
+        _businessName = profile?['businessName'] ?? widget.username;
+        _industry = profile?['industry'] ?? 'Retail';
+        _region = profile?['region'] ?? 'Kuala Lumpur';
+
+        _products = prodSnap.docs
+            .map((d) => {'id': d.id, ...d.data()})
+            .toList();
+
+        _hasInventory = prodSnap.docs.isNotEmpty;
+        _hasAiReady = hasAiReady;
+        _hasCsvImport = logsSnap.docs.isNotEmpty;
+        _inventoryLoading = false;
+
+        _totalProducts = prodSnap.docs.length;
+        _aiReadyCount = aiReadyCount;
+        _lowStockCount = lowStockCount;
+
+        if (maxVal > 0) _weeklyDemand = normalized;
+      });
     } catch (e) {
       debugPrint('HomeScreen _loadUserData: $e');
       if (mounted) setState(() => _inventoryLoading = false);
@@ -251,10 +356,6 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _loadBriefing() async {
-    if (!_hasInventory) {
-      if (mounted) setState(() => _loadingBriefing = false);
-      return;
-    }
     try {
       final r = await GeminiService.generateDailyBriefing(
         businessName: _businessName.isEmpty ? 'My Business' : _businessName,
@@ -264,7 +365,7 @@ class _HomeScreenState extends State<HomeScreen>
       );
       if (mounted) setState(() => _briefing = r);
     } catch (e) {
-      debugPrint('Briefing: $e');
+      debugPrint('Briefing error: $e');
     } finally {
       if (mounted) setState(() => _loadingBriefing = false);
     }
@@ -279,29 +380,18 @@ class _HomeScreenState extends State<HomeScreen>
       );
       if (mounted) setState(() => _demandExplanation = r);
     } catch (e) {
-      debugPrint('DemandExplanation: $e');
+      debugPrint('DemandExplanation error: $e');
     } finally {
       if (mounted) setState(() => _loadingDemand = false);
     }
   }
 
+  /// Pull-to-refresh: reload data only, do NOT auto-call AI.
   Future<void> _refresh() async {
-    GeminiService.clearCache();
     setState(() {
-      _loadingBriefing = true;
-      _loadingDemand = true;
-      _briefing = null;
-      _demandExplanation = null;
       _inventoryLoading = true;
-      _hasInventory = false;
-      _hasAiReady = false;
-      _hasCsvImport = false;
-      _lastUpdated = null;
-      _totalProducts = 0;
-      _aiReadyCount = 0;
-      _lowStockCount = 0;
     });
-    await _loadDataThenAI();
+    await _loadUserData();
   }
 
   // ─────────────────────────────────────────────────────────
@@ -775,6 +865,8 @@ class _HomeScreenState extends State<HomeScreen>
   // ─────────────────────────────────────────────────────────
 
   Widget _buildBriefingCard() {
+    final bool isLoading = _loadingBriefing || _loadingDemand;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -787,101 +879,180 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         border: Border.all(color: AppColors.primary.withOpacity(0.25)),
       ),
-      child: _loadingBriefing
-          ? _shimmer(80)
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Label + timestamp
-                Row(
-                  children: [
-                    Icon(
-                      Icons.wb_sunny_outlined,
-                      color: AppColors.primary,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      "TODAY'S BRIEFING",
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const Spacer(),
-                    if (_lastUpdated != null)
-                      Text(
-                        _lastUpdatedLabel(),
-                        style: TextStyle(
-                          color: AppColors.textSecondary.withOpacity(0.5),
-                          fontSize: 10,
-                        ),
-                      ),
-                  ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Label + timestamp row
+          Row(
+            children: [
+              Icon(Icons.wb_sunny_outlined, color: AppColors.primary, size: 14),
+              const SizedBox(width: 6),
+              Text(
+                "TODAY'S BRIEFING",
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
                 ),
-                const SizedBox(height: 10),
+              ),
+              const Spacer(),
+              if (_lastUpdated != null)
                 Text(
-                  _briefing?.headline ?? '',
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
+                  _lastUpdatedLabel(),
+                  style: TextStyle(
+                    color: AppColors.textSecondary.withOpacity(0.5),
+                    fontSize: 10,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  _briefing?.summary ?? '',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                    height: 1.5,
-                  ),
-                ),
-                if (_briefing?.actionDetail.isNotEmpty == true) ...[
-                  const SizedBox(height: 14),
-                  // Tappable → navigates to Simulator tab
-                  GestureDetector(
-                    onTap: _goToSimulator,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppColors.primary.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.bolt, color: AppColors.primary, size: 15),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _briefing!.actionDetail,
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          Icon(
-                            Icons.arrow_forward_ios_rounded,
-                            color: AppColors.primary.withOpacity(0.6),
-                            size: 11,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // ── State A: Loading ──────────────────────────
+          if (isLoading) ...[
+            _shimmer(16),
+            const SizedBox(height: 10),
+            _shimmer(60),
+            const SizedBox(height: 10),
+            _shimmer(40),
+          ]
+          // ── State B: Has content ──────────────────────
+          else if (_hasEverGenerated && _briefing != null) ...[
+            Text(
+              _briefing!.headline,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
             ),
+            const SizedBox(height: 8),
+            Text(
+              _briefing!.summary,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+            if (_briefing!.actionDetail.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              GestureDetector(
+                onTap: _goToSimulator,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColors.primary.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.bolt, color: AppColors.primary, size: 15),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _briefing!.actionDetail,
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        color: AppColors.primary.withOpacity(0.6),
+                        size: 11,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+
+            // ── Regenerate button ─────────────────────
+            _buildGenerateButton(isRegenerate: true),
+          ]
+          // ── State C: Not yet generated ────────────────
+          else ...[
+            Text(
+              'Your AI briefing is ready to generate.',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Tap below to get today\'s pricing insights, demand summary, and recommended actions — on demand.',
+              style: TextStyle(
+                color: AppColors.textSecondary.withOpacity(0.6),
+                fontSize: 12,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Generate button ───────────────────────
+            _buildGenerateButton(isRegenerate: false),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Shared Generate / Regenerate button widget.
+  Widget _buildGenerateButton({required bool isRegenerate}) {
+    return GestureDetector(
+      onTap: (_loadingBriefing || _loadingDemand) ? null : _runAI,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 13),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withOpacity(
+            (_loadingBriefing || _loadingDemand) ? 0.06 : 0.15,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.primary.withOpacity(
+              (_loadingBriefing || _loadingDemand) ? 0.2 : 0.45,
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isRegenerate ? Icons.refresh_rounded : Icons.auto_awesome,
+              color: AppColors.primary.withOpacity(
+                (_loadingBriefing || _loadingDemand) ? 0.4 : 1.0,
+              ),
+              size: 15,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              isRegenerate ? 'Regenerate Insights' : 'Generate Insights',
+              style: TextStyle(
+                color: AppColors.primary.withOpacity(
+                  (_loadingBriefing || _loadingDemand) ? 0.4 : 1.0,
+                ),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

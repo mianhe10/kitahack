@@ -19,11 +19,12 @@ class AppDrawer extends StatelessWidget {
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.analytics, color: AppColors.primary, size: 40),
-                  SizedBox(height: 10),
-                  Text(
-                    "RETAIL INTEL",
+                children: [
+                  // Your New Image
+                  Image.asset('assets/Pryce.png', height: 50),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Pryce", // Your New Name
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
