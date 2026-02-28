@@ -1,211 +1,152 @@
-[# kitahack](https://img.shields.io/badge/Kito-Hek-blue)
+# Pryce — MSME Pricing Intelligence
+
+> *Democratizing enterprise-level AI for Malaysia's smallest businesses.*
+
+[![Flutter](https://img.shields.io/badge/Flutter-3.27+-02569B?logo=flutter)](https://flutter.dev)
+[![Firebase](https://img.shields.io/badge/Firebase-Firestore-FFCA28?logo=firebase)](https://firebase.google.com)
+[![Gemini](https://img.shields.io/badge/Gemini-1.5%20Flash-4285F4?logo=google)](https://aistudio.google.com)
+[![KitaHack](https://img.shields.io/badge/KitaHack-2026-blueviolet)](https://kitahack.com)
 
 ---
 
-# 📊 MSME Pricing Intelligence
+## The Problem
 
-### *Democratizing Enterprise-Level AI for Malaysia’s Smallest Businesses*
+Malaysian MSMEs operate in a hyper-competitive, algorithm-driven digital economy. Large corporations deploy high-frequency AI pricing engines around the clock — small sellers rely on gut feeling.
 
-Malaysian micro-sellers operate in a hyper-competitive, algorithm-controlled digital economy. While large corporations use high-frequency AI pricing engines, MSMEs often rely on "gut feeling" or emotional reactions to competitors. **MSME Pricing Intelligence** provides the same scientific precision to the backbone of our economy.
+The result: race-to-the-bottom price wars, lost customers from overpricing, and no way to forecast demand or simulate promotions. With **97% of Malaysian businesses classified as SMEs**, this gap has real economic consequences.
 
----
-
-## 🚀 The Problem
-
-Malaysian MSMEs lack data-driven pricing strategies, resulting in:
-
-* **Underpricing:** Reduced margins due to "race to the bottom" price wars.
-* **Overpricing:** Lost customers to competitors.
-* **Decision Paralysis:** Inability to forecast demand or simulate promotion outcomes.
-* **Economic Vulnerability:** 97% of Malaysian businesses are SMEs, yet many struggle to stay profitable amidst rising logistics and supplier costs.
+**Pryce closes that gap.**
 
 ---
 
-## 🛠 Technical Architecture
+## How It Works
 
-The platform is built on a modern, scalable stack designed for real-time interaction and deep analytical processing.
+```
+Import → Analyze → Simulate → Execute
+```
 
-* **Frontend:** **Flutter** (Mobile/Web) for a cross-platform, high-performance UI.
-* **Backend & Auth:** **Firebase** for rapid scaling and seamless user authentication.
-* **Database:** **Cloud Firestore** for real-time inventory and pricing data storage.
-* **AI Engine:** * **Vertex AI:** Powers the regression and time-series models for demand forecasting.
-* **Gemini AI:** Translates complex data into conversational, actionable business insights for sellers.
-* **File Handling:** `file_picker` for secure CSV ingestion.
-* **Database Schema:** * `products/`: Stores name, base price, cost, and stock.
-* `sales/`: Stores historical price points and volume for the AI Forecasting Engine.
-* **Data Processing:** Dart-based CSV parser to convert raw strings into structured JSON for Firestore.
-
-* **Integration:** Support for **Shopee/TikTok Seller Data** (CSV) and **Google Trends** for market signal analysis.
+1. **Import** — Upload the last 30 days of Shopee or TikTok Shop sales via CSV.
+2. **Analyze** — The AI evaluates each product and visualizes market sentiment and demand elasticity.
+3. **Simulate** — Drag the price slider to see how changes affect predicted volume and total profit in real time.
+4. **Execute** — Update prices with confidence, backed by data rather than emotion.
 
 ---
 
-## 🧪 Implementation Details
+## Core Features
 
-### 1. Demand Forecasting Engine
+### 🤖 AI Pricing Engine
+Sends each product's name, current price, stock, and sales velocity to Gemini. Returns an `estimatedMarketPrice`, a `recommendedPrice`, and a one-sentence actionable insight tailored to the Malaysian market.
 
-The system uses regression models to calculate:
+### 📥 Smart CSV Ingestion
+E-commerce exports vary wildly — "Harga" vs "Price", Malay vs English headers. Instead of brittle regex, a sample row is passed to Gemini which intelligently maps columns to the internal schema (`prod_id`, `price`, `qty`, `units_sold`).
 
+### 📈 Daily Demand Forecasting
+The home dashboard aggregates weekly sales into a normalized demand curve. Gemini analyzes this alongside the user's industry and region (e.g. *Retail in Kuala Lumpur*) to explain *why* a day is peaking and what pricing action to take.
 
-$$Demand = f(price, competitor\_price, seasonality, trend)$$
+### 🎛 Interactive Profit Simulator
+A local mathematical model using price elasticity (default: −1.5) powers real-time sliders. As the target price moves, predicted volume and profit lift recalculate instantly, drawing the optimal "sweet spot" on a live curve.
 
+**Core optimization formula:**
 
-By analyzing historical sales alongside external trends, we move beyond static pricing to dynamic, context-aware recommendations.
-
----
-
-### 2. Smart Inventory Management
-
-The inventory module acts as the "Source of Truth" for the MSME.
-
-* **Firebase Synchronization:** Real-time tracking of stock levels using Cloud Firestore.
-* **Low-Stock Alerts:** Visual indicators (Red/Green badges) to prevent "Out of Stock" scenarios during high-demand periods.
-* **Manual & Bulk Entry:** Supports individual product creation or bulk CSV uploads for existing retail businesses.
-
-### 3. Sales Data Integration (CSV Engine)
-
-To enable AI forecasting, sellers need a way to import historical data without manual entry.
-
-* **CSV Mapping Engine:** A custom-built interface that allows users to map their Shopee/TikTok export columns to our platform's internal data model.
-* **Data Cleansing:** Automatically handles missing values or formatting errors common in raw marketplace exports.
+$$\text{Profit} = (\text{Price} - \text{Cost}) \times \text{Predicted Demand}$$
 
 ---
 
-## 🚀 How it Works (The Workflow)
+## Technical Architecture
 
-1. **Import:** The seller uploads their last 30 days of sales from Shopee via the **Inventory Screen**.
-2. **Analyze:** The **Analysis Screen** processes this data, identifying that their product has a "Demand Elasticity of 0.42."
-3. **Simulate:** The seller uses the **Profit Simulator** to see that increasing their price by RM5 will actually *increase* total profit, despite a small drop in volume.
-4. **Execute:** The seller updates their price with confidence, backed by data rather than emotion.
+| Layer | Technology |
+|---|---|
+| Mobile Framework | Flutter (Dart) 3.27+ |
+| UI Charting | `fl_chart` |
+| Authentication | Firebase Authentication |
+| Database | Cloud Firestore (NoSQL) |
+| AI Model | Google Gemini 1.5 Flash |
+| Image Storage | Base64 encoding via Firestore |
 
----
-### 4. Profit Optimization Logic
-
-The core algorithm prioritizes **Profit over Revenue**:
-
-
-$$Profit = (Price - Cost) \times Predicted\ Demand$$
-
-
-The app identifies the "Sweet Spot" on the optimization curve where the seller makes the most money, not just the most sales.
+All infrastructure runs serverless on the **Google Cloud / Firebase** ecosystem.
 
 ---
 
-## 🚧 Challenges Faced
+## Challenges & Solutions
 
-* **Data Scarcity:** Micro-sellers often lack long-term historical records. We solved this by using **Transfer Learning** from broader category benchmarks in the "Home Living" and "Retail" sectors.
-* **User Literacy:** Most users find statistics intimidating. We implemented the **Gemini AI Insight Layer** to turn "0.42 Elasticity" into "Your customers won't mind a RM2 increase."
-* **Real-time Computation:** Generating 50+ data points for a smooth curve on mobile devices required optimized `useMemo`-style logic in Flutter to prevent UI lag.
+**API Rate Limiting** — Free-tier Gemini quotas were exhausted during bulk product analysis. Fixed with Firestore-cached daily briefings, an `isAiReady` document flag to skip redundant calls, and a switch to the more efficient `gemini-1.5-flash` model.
 
----
+**Unpredictable CSV Formats** — Vendor exports differ by platform and language. Solved by using Gemini's natural language understanding to dynamically map headers rather than hardcoded regex patterns.
 
-## 🗺 Future Roadmap
-
-### Phase 1: Pilot (Q2 2026)
-
-* Launch pilot with 200 MSMEs in the Klang Valley.
-* Refine models for local niche markets (e.g., *Pasar Malam* vendors).
-
-### Phase 2: Integration (Q4 2026)
-
-* Direct API integration with **Shopee Open Platform** and **TikTok Shop Seller Center**.
-* Automated price syncing based on AI recommendations.
-
-### Phase 3: Financial Inclusion (2027)
-
-* **Business Health Scoring:** Use pricing stability data to help MSMEs secure micro-financing.
-* **Inventory Optimization:** Predictive restocking based on forecasted demand peaks.
+**UI Freezing on Large Imports** — Parsing big CSVs and awaiting hundreds of Firestore writes blocked the Flutter UI thread. Resolved by offloading parsing asynchronously and batching up to 500 Firestore operations per atomic `batch()` commit.
 
 ---
 
-## 🌍 SDG & National Impact
+## Roadmap
 
-Our project directly contributes to the **UN Sustainable Development Goals** and Malaysia's national agenda:
+**Phase 1 — Vertex AI Migration**
+Move from the standard Gemini API to Google Cloud Vertex AI for enterprise-grade rate limits, regional low-latency endpoints, and fine-tuned models on Malaysian retail datasets.
 
-* **SDG 1 (No Poverty):** Increasing income stability for B40 entrepreneurs.
-* **SDG 8 (Decent Work & Economic Growth):** Strengthening MSME resilience.
-* **SDG 9 (Industry, Innovation & Infrastructure):** Upgrading the technological capabilities of small-scale industries.
+**Phase 2 — Live E-Commerce Integrations**
+Replace manual CSV uploads with direct Shopee, TikTok Shop, and Lazada Open API integrations via Google Cloud Functions for real-time inventory and sales sync.
 
----
-
-## 👥 The Team
-
-Part of **Universiti Malaya (Group OCC 12, Group 2)** for **KitaHack 2026**.
-
-* **Muaz Zikry**
-* **Adam Haikal** 
-* **Ahmad Fahim** 
-* **Aniq Aisar** 
----
-
-> **“Enterprise corporations use AI pricing engines to maximize profit every second. MSME Pricing Intelligence brings that same power to Malaysia’s smallest businesses.”**
+**Phase 3 — Analytics & Multi-Tenant RBAC**
+Add Firebase Analytics and Crashlytics for usage monitoring. Implement Role-Based Access Control via Firebase App Check and Custom Claims so business owners can manage staff access and multiple franchise locations from a single dashboard.
 
 ---
 
-### 🛠 Installation & Setup
+## SDG Alignment
 
-To get the **MSME Pricing Intelligence** environment running locally, follow these steps:
+| Goal | Contribution |
+|---|---|
+| **SDG 1** — No Poverty | Increasing income stability for B40 entrepreneurs |
+| **SDG 8** — Decent Work & Economic Growth | Strengthening MSME resilience and competitiveness |
+| **SDG 9** — Industry, Innovation & Infrastructure | Upgrading tech capabilities of small-scale industries |
 
-#### 1. Prerequisites
+---
 
-* **Flutter SDK:** 3.27.0 or higher
-* **Dart SDK:** 3.0.0 or higher
-* **Firebase CLI:** For backend services
+## Getting Started
 
-#### 2. Clone the Repository
+### Prerequisites
+- Flutter SDK **3.27.0+**
+- Dart SDK **3.0.0+**
+- A free Gemini API key from [Google AI Studio](https://aistudio.google.com/)
+
+### Installation
 
 ```bash
+# 1. Clone the repo
 git clone https://github.com/your-username/kitahack.git
 cd kitahack
 
-```
-
-#### 3. Install Dependencies
-
-This project uses `fl_chart` for data visualization and `lucide_icons` for a modern UI.
-
-```bash
+# 2. Install dependencies
 flutter pub get
-
 ```
 
-#### 4. Backend Configuration
+### Configure the API Key
 
-1. Create a project on the [Firebase Console](https://console.firebase.google.com/).
-2. Enable **Cloud Firestore** and **Authentication**.
-3. Add your `google-services.json` (Android) or `GoogleService-Info.plist` (iOS) to the respective directories.
+Create (or open) `lib/constants/app_constants.dart` and add:
 
-#### 5. Run the App
+```dart
+class AppConstants {
+  static const String geminiApiKey = 'YOUR_GEMINI_API_KEY_HERE';
+}
+```
+
+### Run
 
 ```bash
 flutter run
-
 ```
 
----
-
-### 📂 Project Structure
-
-* `lib/screens/`: Contains the Simulator, Inventory, and Analysis UI.
-* `lib/theme/`: Custom `AppColors` for the "Midnight" theme.
-* `lib/widgets/`: Reusable components like the `AIRecommendationCard`.
+> **Note:** Firebase configuration files are included in the repository for seamless hackathon testing — no additional Firebase setup required.
 
 ---
 
-### 🚀 Deployment to GitHub
+## The Team
 
-Once you have finished your feature, follow these terminal commands to push your branch:
+Built at **Universiti Malaya** for **KitaHack 2026**
 
-```bash
-# 1. Create and switch to your feature branch
-git checkout -b feature-simulator
-
-# 2. Stage and commit your changes
-git add .
-git commit -m "Integrated fl_chart and Vertex AI logic"
-
-# 3. Push to GitHub
-git push -u origin feature-simulator
-
-```
+| | |
+|---|---|
+| Muaz Zikry | Adam Haikal |
+| Ahmad Fahim | Aniq Aisar |
 
 ---
+
+*"Enterprise corporations use AI pricing engines to maximize profit every second. Pryce brings that same power to Malaysia's smallest businesses."*
