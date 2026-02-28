@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_colors.dart';
 
 class CSVMappingScreen extends StatefulWidget {
   final String fileName;
+  final List<String> csvHeaders; // ← real headers passed in
 
-  const CSVMappingScreen({super.key, required this.fileName});
+  const CSVMappingScreen({
+    super.key,
+    required this.fileName,
+    required this.csvHeaders,
+  });
 
   @override
   State<CSVMappingScreen> createState() => _CSVMappingScreenState();
@@ -13,28 +19,34 @@ class CSVMappingScreen extends StatefulWidget {
 class _CSVMappingScreenState extends State<CSVMappingScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // These will store selected mappings
   String? productNameColumn;
   String? quantityColumn;
   String? priceColumn;
   String? dateColumn;
-
-  // Dummy headers (Later replace with real CSV headers)
-  final List<String> csvHeaders = [
-    "Column 1",
-    "Column 2",
-    "Column 3",
-    "Column 4",
-    "Column 5",
-  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text("Map CSV Columns"),
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppColors.textPrimary,
+            size: 20,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Map CSV Columns',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -43,27 +55,41 @@ class _CSVMappingScreenState extends State<CSVMappingScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              /// File Info
+              // ── File info ──────────────────────────────────
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: AppColors.card,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(
                   children: [
                     const Icon(
-                      Icons.insert_drive_file,
+                      Icons.insert_drive_file_outlined,
                       color: AppColors.primary,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        widget.fileName,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.fileName,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${widget.csvHeaders.length} columns detected',
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -73,69 +99,73 @@ class _CSVMappingScreenState extends State<CSVMappingScreen> {
               const SizedBox(height: 24),
 
               const Text(
-                "Match your CSV columns to required fields",
+                'Match your CSV columns to required fields',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
               ),
-
-              const SizedBox(height: 8),
-
+              const SizedBox(height: 6),
               const Text(
-                "These fields are required for demand forecasting and pricing optimization.",
+                'Select which column in your CSV matches each field.',
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
               ),
 
               const SizedBox(height: 24),
 
-              /// Product Name
-              _buildDropdownField(
-                label: "Product Name",
-                value: productNameColumn,
-                onChanged: (val) => setState(() => productNameColumn = val),
+              Expanded(
+                child: ListView(
+                  children: [
+                    _buildDropdownField(
+                      label: 'Product Name',
+                      icon: Icons.label_outline,
+                      value: productNameColumn,
+                      onChanged: (val) =>
+                          setState(() => productNameColumn = val),
+                    ),
+                    _buildDropdownField(
+                      label: 'Quantity Sold',
+                      icon: Icons.numbers,
+                      value: quantityColumn,
+                      onChanged: (val) => setState(() => quantityColumn = val),
+                    ),
+                    _buildDropdownField(
+                      label: 'Selling Price',
+                      icon: Icons.attach_money,
+                      value: priceColumn,
+                      onChanged: (val) => setState(() => priceColumn = val),
+                    ),
+                    _buildDropdownField(
+                      label: 'Date',
+                      icon: Icons.calendar_today_outlined,
+                      value: dateColumn,
+                      onChanged: (val) => setState(() => dateColumn = val),
+                    ),
+                  ],
+                ),
               ),
 
-              /// Quantity Sold
-              _buildDropdownField(
-                label: "Quantity Sold",
-                value: quantityColumn,
-                onChanged: (val) => setState(() => quantityColumn = val),
-              ),
-
-              /// Selling Price
-              _buildDropdownField(
-                label: "Selling Price",
-                value: priceColumn,
-                onChanged: (val) => setState(() => priceColumn = val),
-              ),
-
-              /// Date
-              _buildDropdownField(
-                label: "Date",
-                value: dateColumn,
-                onChanged: (val) => setState(() => dateColumn = val),
-              ),
-
-              const Spacer(),
-
-              /// Confirm Button
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.black,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              // ── Confirm button ─────────────────────────────
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: _validateAndSubmit,
+                  child: const Text(
+                    'Confirm & Import',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ),
-                onPressed: _validateAndSubmit,
-                child: const Text(
-                  "Confirm & Import",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
               ),
+              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -145,6 +175,7 @@ class _CSVMappingScreenState extends State<CSVMappingScreen> {
 
   Widget _buildDropdownField({
     required String label,
+    required IconData icon,
     required String? value,
     required Function(String?) onChanged,
   }) {
@@ -154,39 +185,60 @@ class _CSVMappingScreenState extends State<CSVMappingScreen> {
         value: value,
         dropdownColor: AppColors.card,
         style: const TextStyle(color: AppColors.textPrimary),
+        icon: const Icon(
+          Icons.keyboard_arrow_down_rounded,
+          color: AppColors.textSecondary,
+        ),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: const TextStyle(color: AppColors.textSecondary),
+          labelStyle: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 13,
+          ),
+          prefixIcon: Icon(icon, color: AppColors.primary, size: 20),
           filled: true,
           fillColor: AppColors.card,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide.none,
           ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+              color: AppColors.primary.withValues(alpha: 0.6),
+            ),
+          ),
         ),
-        items: csvHeaders
+        // ← Real column names from the CSV
+        items: widget.csvHeaders
             .map(
               (header) => DropdownMenuItem(
                 value: header,
                 child: Text(
                   header,
-                  style: const TextStyle(color: AppColors.textPrimary),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             )
             .toList(),
         onChanged: onChanged,
-        validator: (value) => value == null ? "Required field" : null,
+        validator: (v) => v == null ? 'Please select a column' : null,
       ),
     );
   }
 
   void _validateAndSubmit() {
     if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("CSV successfully mapped!")));
-
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('CSV successfully mapped!'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
       Navigator.pop(context);
     }
   }

@@ -12,13 +12,11 @@ class SimulatorScreen extends StatefulWidget {
 }
 
 class _SimulatorScreenState extends State<SimulatorScreen> {
-  // State variables for the simulation
   double _cost = 18.0;
   double _currentPrice = 45.0;
   double _newPrice = 52.0;
   int _currentVolume = 100;
 
-  // Simulation Logic (The "Engine")
   Map<String, dynamic> _calculateResults() {
     const double elasticity = -1.5;
     double priceChangePct = (_newPrice - _currentPrice) / _currentPrice;
@@ -28,9 +26,10 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
     double currentProfit = (_currentPrice - _cost) * _currentVolume;
     double predictedProfit = (_newPrice - _cost) * predictedVolume;
     double profitLift = predictedProfit - currentProfit;
-    double profitLiftPct = currentProfit != 0 ? (profitLift / currentProfit) * 100 : 0.0;
+    double profitLiftPct = currentProfit != 0
+        ? (profitLift / currentProfit) * 100
+        : 0.0;
 
-    // Generate Chart Curve Data
     List<FlSpot> profitSpots = [];
     double startPrice = max(10.0, _currentPrice - 20.0);
     for (double p = startPrice; p <= _currentPrice + 30; p += 2) {
@@ -54,79 +53,53 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
     final results = _calculateResults();
     final bool isPositive = results['profitLift'] >= 0;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text("Profit Simulator",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.textPrimary)),
-        centerTitle: true,
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 24),
-
-            // Stats Row
-            Row(
-              children: [
-                Expanded(child: _buildStatCard("Profit Lift", "RM ${results['profitLift'].toStringAsFixed(2)}", "${results['profitLiftPct'].toStringAsFixed(1)}%", isPositive)),
-                const SizedBox(width: 12),
-                Expanded(child: _buildStatCard("Volume Impact", "${results['predictedVolume']}", "${results['volumeChange']} orders", results['volumeChange'] >= 0)),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-            _buildChartSection(results['profitSpots']),
-
-            const SizedBox(height: 24),
-            _buildControlsCard(),
-
-            const SizedBox(height: 40),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Strategy Tester",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-            Text("Simulate pricing for Malaysian MSMEs",
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-          ],
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-          ),
-          child: const Row(
+    // Match home page: SingleChildScrollView with padding: all(16), no Scaffold/AppBar
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Stats Row
+          Row(
             children: [
-              Icon(LucideIcons.zap, size: 14, color: AppColors.primary),
-              SizedBox(width: 4),
-              Text("AI MODE", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 10)),
+              Expanded(
+                child: _buildStatCard(
+                  "Profit Lift",
+                  "RM ${results['profitLift'].toStringAsFixed(2)}",
+                  "${results['profitLiftPct'].toStringAsFixed(1)}%",
+                  isPositive,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildStatCard(
+                  "Volume Impact",
+                  "${results['predictedVolume']}",
+                  "${results['volumeChange']} orders",
+                  results['volumeChange'] >= 0,
+                ),
+              ),
             ],
           ),
-        )
-      ],
+
+          const SizedBox(height: 20),
+          _buildChartSection(results['profitSpots']),
+
+          const SizedBox(height: 20),
+          _buildControlsCard(),
+
+          const SizedBox(height: 24),
+        ],
+      ),
     );
   }
 
-  Widget _buildStatCard(String title, String value, String subValue, bool positive) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    String subValue,
+    bool positive,
+  ) {
     Color accentColor = positive ? AppColors.primary : const Color(0xFFFF8A65);
 
     return Container(
@@ -138,13 +111,31 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
       ),
       child: Column(
         children: [
-          Text(title.toUpperCase(),
-              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+          Text(
+            title.toUpperCase(),
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textSecondary,
+            ),
+          ),
           const SizedBox(height: 8),
-          Text(value,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: accentColor)),
-          Text(subValue,
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: accentColor.withOpacity(0.7))),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: accentColor,
+            ),
+          ),
+          Text(
+            subValue,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: accentColor.withOpacity(0.7),
+            ),
+          ),
         ],
       ),
     );
@@ -153,7 +144,7 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
   Widget _buildChartSection(List<FlSpot> spots) {
     return Container(
       padding: const EdgeInsets.all(20),
-      height: 320,
+      height: 300,
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
@@ -166,11 +157,16 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
             children: [
               Icon(LucideIcons.trendingUp, size: 18, color: AppColors.primary),
               SizedBox(width: 8),
-              Text("Profit Optimization Curve",
-                  style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+              Text(
+                "Profit Optimization Curve",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           Expanded(
             child: LineChart(
               LineChartData(
@@ -178,7 +174,6 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
                   handleBuiltInTouches: true,
                   touchTooltipData: LineTouchTooltipData(
                     getTooltipColor: (touchedSpot) => AppColors.card,
-                    // Fixed: renamed parameter and type
                     tooltipBorderRadius: BorderRadius.circular(8),
                     getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
                       return touchedBarSpots.map((barSpot) {
@@ -191,7 +186,8 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
                           ),
                           children: [
                             TextSpan(
-                              text: 'Profit: RM ${barSpot.y.toStringAsFixed(2)}',
+                              text:
+                                  'Profit: RM ${barSpot.y.toStringAsFixed(2)}',
                               style: const TextStyle(
                                 color: AppColors.primary,
                                 fontWeight: FontWeight.w600,
@@ -207,19 +203,29 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) => FlLine(color: Colors.white.withOpacity(0.05), strokeWidth: 1),
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: Colors.white.withOpacity(0.05),
+                    strokeWidth: 1,
+                  ),
                 ),
                 titlesData: FlTitlesData(
                   show: true,
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 40,
                       getTitlesWidget: (value, meta) => Text(
                         'RM${value.toInt()}',
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 10),
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 10,
+                        ),
                       ),
                     ),
                   ),
@@ -232,7 +238,10 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
                         padding: const EdgeInsets.only(top: 8.0),
                         child: Text(
                           'RM${value.toInt()}',
-                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 10),
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 10,
+                          ),
                         ),
                       ),
                     ),
@@ -298,21 +307,51 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
             children: [
               Icon(LucideIcons.calculator, size: 18, color: AppColors.primary),
               SizedBox(width: 8),
-              Text("Simulation Controls",
-                  style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+              Text(
+                "Simulation Controls",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 20),
-          _sliderInput("Product Cost", _cost, 1, 100, (v) => setState(() => _cost = v)),
-          _sliderInput("Base Price", _currentPrice, 5, 200, (v) => setState(() => _currentPrice = v)),
-          _sliderInput("Target Price", _newPrice, 5, 200, (v) => setState(() => _newPrice = v),
-              color: const Color(0xFF00E5FF)),
+          _sliderInput(
+            "Product Cost",
+            _cost,
+            1,
+            100,
+            (v) => setState(() => _cost = v),
+          ),
+          _sliderInput(
+            "Base Price",
+            _currentPrice,
+            5,
+            200,
+            (v) => setState(() => _currentPrice = v),
+          ),
+          _sliderInput(
+            "Target Price",
+            _newPrice,
+            5,
+            200,
+            (v) => setState(() => _newPrice = v),
+            color: const Color(0xFF00E5FF),
+          ),
         ],
       ),
     );
   }
 
-  Widget _sliderInput(String label, double value, double min, double max, Function(double) onChanged, {Color color = AppColors.primary}) {
+  Widget _sliderInput(
+    String label,
+    double value,
+    double min,
+    double max,
+    Function(double) onChanged, {
+    Color color = AppColors.primary,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -320,8 +359,22 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-              Text("RM ${value.toInt()}", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              Text(
+                "RM ${value.toInt()}",
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
             ],
           ),
           SliderTheme(

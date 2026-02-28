@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/app_colors.dart';
 import '../screens/login_screen.dart';
-import '../screens/SettingScreen.dart'; 
-import '../screens/profile.dart';
+import '../screens/setting_screen.dart';
+import '../screens/profile_screen.dart'; // ← updated import
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -35,23 +35,23 @@ class AppDrawer extends StatelessWidget {
             ),
           ),
           _buildDrawerItem(
-  context, 
-  Icons.person_outline, 
-  "Account Profile",
-  onTap: () {
-    Navigator.pop(context); // Close the drawer first
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const ProfileScreen()),
-    );
-  },
-),
+            context,
+            Icons.person_outline,
+            "Account Profile",
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              );
+            },
+          ),
           _buildDrawerItem(
-            context, 
-            Icons.settings_outlined, 
+            context,
+            Icons.settings_outlined,
             "Settings",
             onTap: () {
-              Navigator.pop(context); 
+              Navigator.pop(context);
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const SettingsScreen()),
@@ -72,7 +72,7 @@ class AppDrawer extends StatelessWidget {
     IconData icon,
     String title, {
     bool isLogout = false,
-    VoidCallback? onTap, 
+    VoidCallback? onTap,
   }) {
     return ListTile(
       leading: Icon(
@@ -85,21 +85,22 @@ class AppDrawer extends StatelessWidget {
           color: isLogout ? Colors.redAccent : AppColors.textPrimary,
         ),
       ),
-      onTap: onTap ?? () async {
-        if (isLogout) {
-          await FirebaseAuth.instance.signOut();
-
-          if (context.mounted) {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (context) => const LoginScreen()),
-              (route) => false,
-            );
-          }
-        } else {
-          Navigator.pop(context);
-        }
-      },
+      onTap:
+          onTap ??
+          () async {
+            if (isLogout) {
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
+            } else {
+              Navigator.pop(context);
+            }
+          },
     );
   }
 }
